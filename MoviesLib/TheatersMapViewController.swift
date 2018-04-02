@@ -7,29 +7,83 @@
 //
 
 import UIKit
+import MapKit
 
 class TheatersMapViewController: UIViewController {
 
+    // MARK: - IBOutlets
+    @IBOutlet weak var mapView: MKMapView!
+    
+    // MARK: - Properties
+    var currentElement: String!
+    var theater: Theater!
+    var theaters: [Theater] = []
+    
+    // MARK: - Super Methods
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
-    }
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+        loadXML()
     }
     
-
-    /*
-    // MARK: - Navigation
-
-    // In a storyboard-based application, you will often want to do a little preparation before navigation
-    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        // Get the new view controller using segue.destinationViewController.
-        // Pass the selected object to the new view controller.
+    // MARK: - Methods
+    func loadXML() {
+        guard let xml = Bundle.main.url(forResource: "theaters", withExtension: "xml"), let xmlParser = XMLParser(contentsOf: xml) else {return}
+        xmlParser.delegate = self
+        xmlParser.parse()
     }
-    */
+    
+    func addTheaters() {
+        for theater in theaters {
+            let coordinate = CLLocationCoordinate2D(latitude: theater.latitude, longitude: theater.longitude)
+            
+            let annotation = TheaterAnnotation(coordinate: coordinate, title: theater.name, subtitle: theater.address)
+            mapView.addAnnotation(annotation)
+        }
+    }
+}
 
+// MARK: - XMLParserDelegate
+extension TheatersMapViewController: XMLParserDelegate {
+    
+    func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
+        
+        currentElement = elementName
+        
+        if elementName == "Theater" {
+            theater = Theater()
+        }
+    }
+    
+    func parser(_ parser: XMLParser, foundCharacters string: String) {
+        
+        let content = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        if !content.isEmpty {
+            switch currentElement {
+            case "name":
+                theater.name = content
+            case "address":
+                theater.address = content
+            case "latitude":
+                theater.latitude = Double(content)!
+            case "longitude":
+                theater.longitude = Double(content)!
+            case "url":
+                theater.url = content
+            default:
+                break
+            }
+        }
+    }
+    
+    func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {
+        
+        if elementName == "Theater" {
+            theaters.append(theater)
+        }
+    }
+    
+    func parserDidEndDocument(_ parser: XMLParser) {
+        addTheaters()
+    }
 }
